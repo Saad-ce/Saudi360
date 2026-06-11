@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Saudi360 — MVP Flow Builder</title>
+<style>
+  :root{
+    --bg:#0e1116;
+    --panel:#161b22;
+    --panel-2:#1c232d;
+    --ink:#e8edf2;
+    --ink-dim:#9aa6b2;
+    --line:#2a323d;
+    --accent:#3ddc97;
+    --accent-2:#7c8cff;
+
+    --member:#16a34a;   --member-bg:#0f1d16;
+    --organiser:#8b5cf6; --organiser-bg:#1a1426;
+    --vendor:#06b6d4;   --vendor-bg:#0c1c20;
+    --admin:#64748b;    --admin-bg:#161b22;
+    --system:#3b82f6;   --system-bg:#0e1726;
+    --decision:#f59e0b; --decision-bg:#241a08;
+    --byes:#22c55e;     --byes-bg:#0f1d14;
+    --bno:#ef4444;      --bno-bg:#241011;
+    --terminal:#cbd5e1; --terminal-bg:#1e2530;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:14px;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+  }
+  header,.help{flex:0 0 auto}
+  /* ---------- top bar ---------- */
+  header{
+    display:flex;align-items:center;gap:16px;
+    padding:12px 18px;
+    background:linear-gradient(180deg,#11161d,#0e1116);
+    border-bottom:1px solid var(--line);
+    position:relative;z-index:30;
+  }
+  .brand{display:flex;flex-direction:column;line-height:1.1}
+  .brand b{font-size:16px;letter-spacing:.3px}
+  .brand b span{color:var(--accent)}
+  .brand small{color:var(--ink-dim);font-size:11px;margin-top:2px}
+  .tabs{display:flex;gap:6px;margin-left:8px}
+  .tab{
+    appearance:none;border:1px solid var(--line);background:var(--panel);
+    color:var(--ink-dim);padding:8px 14px;border-radius:9px;cursor:pointer;
+    font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;transition:.15s;
+  }
+  .tab .dot{width:9px;height:9px;border-radius:50%}
+  .tab:hover{color:var(--ink);border-color:#3a4452}
+  .tab.active{background:var(--panel-2);color:var(--ink);border-color:#46566a;box-shadow:inset 0 0 0 1px rgba(255,255,255,.04)}
+  .spacer{flex:1}
+  .toolbtn{
+    appearance:none;border:1px solid var(--line);background:var(--panel);
+    color:var(--ink-dim);padding:8px 11px;border-radius:8px;cursor:pointer;font-size:12.5px;font-weight:600;
+    display:inline-flex;align-items:center;gap:6px;transition:.15s;
+  }
+  .toolbtn:hover{color:var(--ink);border-color:#3a4452;background:var(--panel-2)}
+  .toolbtn.danger:hover{color:#fff;border-color:var(--bno);background:#2a1416}
+
+  /* ---------- help strip ---------- */
+  .help{
+    display:flex;flex-wrap:wrap;align-items:center;gap:18px;
+    padding:7px 18px;background:#11161d;border-bottom:1px solid var(--line);
+    color:var(--ink-dim);font-size:11.5px;z-index:20;position:relative;
+  }
+  .help b{color:var(--ink);font-weight:600}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin-left:auto}
+  .lg{display:flex;align-items:center;gap:6px}
+  .lg i{width:14px;height:14px;border-radius:4px;display:inline-block;border-left:4px solid}
+
+  /* ---------- canvas ---------- */
+  .stage{flex:1 1 auto;position:relative;min-height:0}
+  .wrap{position:absolute;inset:0;overflow:auto;}
+  #scroll{position:relative;}
+  #canvas{position:relative;width:1180px;}
+  svg.edges{position:absolute;left:0;top:0;overflow:visible;z-index:1}
+  svg.edges path.hit{stroke:transparent;stroke-width:18px;fill:none;cursor:pointer}
+  svg.edges path.vis{stroke:#5b6675;stroke-width:2px;fill:none}
+  svg.edges g.edge:hover path.vis{stroke:var(--accent-2)}
+  svg.edges g.edge.sel path.vis{stroke:var(--bno);stroke-width:2.6px}
+  svg.edges path.temp{stroke:var(--accent);stroke-width:2px;stroke-dasharray:5 5;fill:none}
+
+  .section-label{
+    position:absolute;color:var(--ink-dim);font-size:11px;font-weight:700;letter-spacing:1.4px;
+    text-transform:uppercase;z-index:1;user-select:none;
+    border-left:2px solid var(--accent);padding-left:8px;
+  }
+
+  .node{
+    position:absolute;width:300px;background:var(--panel);border:1px solid var(--line);
+    border-left:5px solid #555;border-radius:11px;padding:12px 14px;z-index:2;
+    box-shadow:0 4px 14px rgba(0,0,0,.35);cursor:grab;user-select:none;
+    transition:box-shadow .12s,border-color .12s;
+  }
+  .node:hover{box-shadow:0 6px 20px rgba(0,0,0,.5)}
+  .node.sel{outline:2px solid var(--accent);outline-offset:1px}
+  .node.dragging{cursor:grabbing;z-index:10;box-shadow:0 14px 34px rgba(0,0,0,.6)}
+  .node .kind{font-size:9.5px;font-weight:800;letter-spacing:1px;text-transform:uppercase;opacity:.85;margin-bottom:5px}
+  .node .txt{font-size:12.5px;line-height:1.42;color:var(--ink)}
+  .node.member{border-left-color:var(--member);background:var(--member-bg)}
+  .node.member .kind{color:var(--member)}
+  .node.organiser{border-left-color:var(--organiser);background:var(--organiser-bg)}
+  .node.organiser .kind{color:var(--organiser)}
+  .node.vendor{border-left-color:var(--vendor);background:var(--vendor-bg)}
+  .node.vendor .kind{color:var(--vendor)}
+  .node.admin{border-left-color:var(--admin);background:var(--admin-bg)}
+  .node.admin .kind{color:#94a3b8}
+  .node.system{border-left-color:var(--system);border-left-style:dashed;background:var(--system-bg)}
+  .node.system .kind{color:var(--system)}
+  .node.decision{border-left-color:var(--decision);background:var(--decision-bg)}
+  .node.decision .kind{color:var(--decision)}
+  .node.byes{border-left-color:var(--byes);background:var(--byes-bg)}
+  .node.byes .kind{color:var(--byes)}
+  .node.bno{border-left-color:var(--bno);background:var(--bno-bg)}
+  .node.bno .kind{color:var(--bno)}
+  .node.terminal{border-left-color:var(--terminal);background:var(--terminal-bg)}
+  .node.terminal .kind{color:var(--terminal)}
+  .node.terminal .txt{font-weight:700}
+
+  .node .actions{position:absolute;top:6px;right:7px;display:flex;gap:4px;opacity:0;transition:.12s}
+  .node:hover .actions{opacity:1}
+  .node .ic{
+    width:22px;height:22px;border-radius:6px;border:1px solid var(--line);background:rgba(0,0,0,.35);
+    color:var(--ink-dim);font-size:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;
+  }
+  .node .ic:hover{color:#fff;background:#000}
+  .node .ic.del:hover{color:#fff;background:var(--bno);border-color:var(--bno)}
+  .node .ic.has{color:var(--accent);border-color:var(--accent);opacity:1}
+  .node:not(:hover) .ic.has{opacity:1}
+
+  .handle{
+    position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);
+    width:16px;height:16px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);
+    cursor:crosshair;opacity:.35;transition:.12s;z-index:3;
+  }
+  .node:hover .handle{opacity:1;transform:translateX(-50%) scale(1.15)}
+  .cmt-flag{
+    position:absolute;bottom:8px;left:14px;right:36px;font-size:10.5px;color:var(--accent-2);
+    font-style:italic;line-height:1.3;display:none;
+  }
+  .node.has-cmt{padding-bottom:30px}
+  .node.has-cmt .cmt-flag{display:block;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* ---------- modal ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:100}
+  .overlay.show{display:flex}
+  .modal{width:min(460px,92vw);background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  .modal h3{margin:0 0 4px;font-size:15px}
+  .modal .sub{color:var(--ink-dim);font-size:12px;margin:0 0 12px;line-height:1.4}
+  .modal textarea{width:100%;min-height:120px;background:var(--bg);border:1px solid var(--line);border-radius:9px;
+    color:var(--ink);padding:10px;font-family:inherit;font-size:13px;resize:vertical}
+  .modal textarea:focus{outline:none;border-color:var(--accent-2)}
+  .modal select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--ink);
+    padding:9px 10px;font-family:inherit;font-size:13px;margin-bottom:10px}
+  .modal select:focus{outline:none;border-color:var(--accent-2)}
+  .modal .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0a0d11;border:1px solid var(--line);
+    color:var(--ink);padding:10px 16px;border-radius:10px;z-index:200;font-size:13px;opacity:0;transition:.25s;pointer-events:none}
+  .toast.show{opacity:1}
+  .empty-note{position:absolute;left:50%;top:120px;transform:translateX(-50%);color:var(--ink-dim);font-size:13px;text-align:center;max-width:480px;line-height:1.5;z-index:2}
+  input[type=file]{display:none}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <b>Saudi<span>360</span> · Flow Builder</b>
+  </div>
+  <div class="tabs" id="tabs"></div>
+  <div class="spacer"></div>
+  <button class="toolbtn" id="addBoxBtn" title="Create a new box" style="border-color:var(--accent);color:var(--accent)">＋ Add box</button>
+  <button class="toolbtn" id="undoBtn" title="Undo the last change (Ctrl/Cmd+Z)">↩ Undo</button>
+  <button class="toolbtn" id="exportBtn" title="Download an HTML file you can send — it opens to these exact flows">⬇ Export &amp; share</button>
+</header>
+
+<div class="stage">
+  <div class="wrap" id="wrap">
+    <div id="scroll">
+      <div id="canvas">
+        <svg class="edges" id="svg"></svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- comment modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3>Comment</h3>
+    <p class="sub" id="cmtCtx"></p>
+    <textarea id="cmtText" placeholder="Add a note for your co-founders about this step…"></textarea>
+    <div class="row">
+      <button class="toolbtn danger" id="cmtClear">Clear</button>
+      <button class="toolbtn" id="cmtCancel">Cancel</button>
+      <button class="toolbtn" id="cmtSave" style="border-color:var(--accent);color:var(--accent)">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- add / edit box modal -->
+<div class="overlay" id="boxOverlay">
+  <div class="modal">
+    <h3 id="boxTitle">Add a box</h3>
+    <p class="sub">Choose what kind of step this is, then type its text. You can move, connect, comment and delete it like any other box, and drag its green dot to draw an arrow.</p>
+    <select id="boxType">
+      <option value="member">Member action</option>
+      <option value="organiser">Organiser action</option>
+      <option value="vendor">Vendor action</option>
+      <option value="admin">Admin action</option>
+      <option value="system">System / automatic</option>
+      <option value="decision">Decision point</option>
+      <option value="byes">Branch — yes / positive</option>
+      <option value="bno">Branch — no / alternative</option>
+      <option value="terminal">End state</option>
+    </select>
+    <textarea id="boxText" placeholder="Type the step text…"></textarea>
+    <div class="row">
+      <button class="toolbtn" id="boxCancel">Cancel</button>
+      <button class="toolbtn" id="boxSave" style="border-color:var(--accent);color:var(--accent)">Add box</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   Saudi360 MVP Flow Builder
+   Pre-loaded from "TH Recommended Workflow" (09 Jun 2026).
+   No frameworks, no build step — fully self-contained.
+   ============================================================ */
+
+/* capture a clean copy of this page (before any rendering) for HTML export */
+const PRISTINE_HTML = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+
+/* ---- safe persistence (works hosted; falls back in-memory) ---- */
+const STORE_KEY = "saudi360_flows_v2";
+const mem = {};
+const store = {
+  get(k){ try{ return localStorage.getItem(k); }catch(e){ return mem[k] ?? null; } },
+  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){ mem[k]=v; } }
+};
+
+const ROW_H = 128, TOP = 70, COLX = [40, 420, 800];
+const KIND_LABEL = {
+  member:"Member", organiser:"Organiser", vendor:"Vendor", admin:"Admin",
+  system:"System / auto", decision:"Decision", byes:"Branch", bno:"Branch", terminal:"End state"
+};
+
+/* ---------- DEFAULT BOARDS (from the document) ---------- */
+const RAW = {
+  user: {
+    name:"User (Member)", color:"var(--member)",
+    sections:[{r:0,t:"Onboarding"},{r:7.55,t:"Discovering & attending an event"}],
+    nodes:[
+      ["u1","member","Member opens the app or taps a shareable event link",1,0],
+      ["u2","member","Choose sign-in method — Apple ID / Google · phone + password mandatory for all accounts",1,1],
+      ["u3","system","SMS verification sent — phone number is mandatory for every account type",1,2],
+      ["u4","member","Enter name + upload profile photo (photo optional)",1,3],
+      ["u5","member","Select activity interests — choose at least 3, visual card format (not a form)",1,4],
+      ["u6","system","Discovery feed personalised based on selected interests",1,5],
+      ["u7","member","Optional: complete demographic profile — age, gender, profession, nationality (dismissable)",1,6],
+      ["u8","terminal","Member is on the discovery feed",1,7],
+      ["u9","member","Browse events or clubs — toggle Events/Clubs · filters: category, date, price · restricted events auto-filtered by profile",1,8.6],
+      ["u10","member","Tap an event card — view name, date, hosting club, price, restrictions, description",1,9.6],
+      ["u11","decision","Event at capacity?",1,10.6],
+      ["u12","bno","✘ Yes — option to join the waitlist · notified when a spot opens (served in queue order)",2,11.6],
+      ["u13","byes","✔ No — proceed to RSVP or checkout",0,11.6],
+      ["u14","decision","Free or paid event?",1,12.7],
+      ["u15","byes","✔ Free — tap RSVP → instantly confirmed · location shown if public",0,13.7],
+      ["u16","bno","✘ Paid — payment is the automatic RSVP “Yes” · Apple Pay / Mada / STC Pay · informal-club payments processed by the venue",2,13.7],
+      ["u17","system","Confirmation push sent — member added to the organiser's confirmed attendee list",1,14.9],
+      ["u18","decision","How is the location revealed?",1,15.9],
+      ["u19","byes","✔ Auto-reveal — system fires 48 hrs before start → gamified push to all confirmed paid members",0,16.9],
+      ["u20","bno","✘ Manual only — organiser triggers reveal at their discretion → same gamified push",2,16.9],
+      ["u21","system","Event day — geofence fires (~200 m) OR manual ‘I am at the event’ check-in 30 min after start",1,18.0],
+      ["u22","system","2 hrs post-event — rating prompt fires · stars + preset tags, no free text · one rating per member",1,19.0],
+      ["u23","system","If first attendance — auto-added to club member roster (to be discussed)",1,20.0],
+      ["u24","terminal","Attendance + rating recorded in the club dashboard",1,21.0],
+    ],
+    edges:[["u1","u2"],["u2","u3"],["u3","u4"],["u4","u5"],["u5","u6"],["u6","u7"],["u7","u8"],
+      ["u8","u9"],["u9","u10"],["u10","u11"],["u11","u12"],["u11","u13"],["u12","u13"],
+      ["u13","u14"],["u14","u15"],["u14","u16"],["u15","u17"],["u16","u17"],
+      ["u17","u18"],["u18","u19"],["u18","u20"],["u19","u21"],["u20","u21"],
+      ["u21","u22"],["u22","u23"],["u23","u24"]]
+  },
+
+  organiser: {
+    name:"Organiser", color:"var(--organiser)",
+    sections:[{r:0,t:"Creating a club"},{r:9.55,t:"Event creation"},
+      {r:17.55,t:"Venue booking sub-flow (only if a platform venue is needed)"},
+      {r:26.55,t:"Ticket settings"},{r:30.55,t:"Pre-event & day-of management"}],
+    nodes:[
+      ["o1","organiser","Existing member account",1,0],
+      ["o2","organiser","Tap avatar → “Start a club”",1,1],
+      ["o3","organiser","Enter club details — name, description, profile photo, 3 activity tags",1,2],
+      ["o4","decision","Club visibility?",1,3],
+      ["o5","byes","✔ Public — discoverable in search & browse, filterable",0,4],
+      ["o6","bno","✘ Invite-only — hidden from discovery · unique invite link generated",2,4],
+      ["o7","decision","Club type?",1,5],
+      ["o8","byes","✔ Formal — connect commercial bank account · PSP pays out T+2 post-event",0,6],
+      ["o9","bno","✘ Informal — venue = merchant of record · organiser settles off-platform · disclaimer shown",2,6],
+      ["o10","system","Club profile created — organiser mode activated, club dashboard accessible",1,7],
+      ["o11","organiser","Optional: add co-organisers — full or limited (no financials) · ownership transfer supported",1,8],
+      ["o12","terminal","Club is live · organiser lands on the club dashboard",1,9],
+      ["o13","decision","Event creation — entry point?",1,10.1],
+      ["o14","byes","✔ Entry A — Club profile → “Create event”",0,11.1],
+      ["o15","bno","✘ Entry B — Marketplace → select venue → “Book for event” (venue & space pre-selected, Step 3 pre-filled)",2,11.1],
+      ["o16","organiser","Step 1: Event basics — name, description, date & time, free or paid, hosting club",1,12.3],
+      ["o17","organiser","Step 2: Audience settings — public/private, gender & age restriction, capacity cap (optional)",1,13.3],
+      ["o18","decision","Recurring event?",1,14.3],
+      ["o19","byes","✔ Yes — set frequency (weekly/biweekly/monthly) · optional auto-cancel if attendees < X at 48 hr · instances editable",0,15.3],
+      ["o20","bno","✘ No — single event",2,15.3],
+      ["o21","decision","Platform venue needed?",1,16.4],
+      ["o22","bno","✘ No / self-arranged (~50% of events) — skip straight to ticket settings",0,17.4],
+      ["o23","byes","✔ Yes — book via marketplace",2,17.4],
+      ["o24","organiser","Browse marketplace — filter: Venues · Photographers · Catering · Production · Decor",1,18.6],
+      ["o25","organiser","View venue profile + select space — each space has its own calendar & pricing",1,19.6],
+      ["o26","organiser","Pick an available time slot — only open slots shown · on-platform bookings auto-block",1,20.6],
+      ["o27","organiser","Select arrangement — SAR/hour · per-head minimum · flat fee",1,21.6],
+      ["o28","decision","Pay for the venue now or later?",1,22.6],
+      ["o29","byes","✔ Pay now — booking confirmed → calendar slot auto-blocked for everyone else",0,23.6],
+      ["o30","bno","✘ Pay later — booking held as pending · progressive reminders · 48 hr hard deadline",2,23.6],
+      ["o31","system","48 hr deadline check — system evaluates venue payment status before event start",1,24.7],
+      ["o32","decision","Venue paid by the 48 hr deadline?",1,25.7],
+      ["o33","byes","✔ Yes — event proceeds normally",0,26.7],
+      ["o34","bno","✘ No — organiser must act: (1) pay now (2) remove venue & self-arrange (3) no action → auto-cancel + full refunds",2,26.7],
+      ["o35","organiser","Step 3: Ticket settings (paid events) — price per ticket, refund policy",1,27.9],
+      ["o36","organiser","Location reveal setting — auto-reveal 48 hr before (recommended default) or manual only",1,28.9],
+      ["o37","organiser","Step 4: Review & post",1,29.9],
+      ["o38","system","Event published · shareable link generated — works in-browser, shows preview + app download nudge",1,30.9],
+      ["o39","organiser","Monitor registration — attendee list (paid auto-confirmed; free = RSVP ‘Yes’) · filter & export CSV/PDF",1,32.1],
+      ["o40","system","Location reveal — auto 48 hr before (if toggled) or manual · gamified push to confirmed paid members",1,33.1],
+      ["o41","decision","Recurring auto-cancel threshold (48 hr before)?",1,34.1],
+      ["o42","byes","✔ Attendees ≥ threshold — event proceeds normally",0,35.1],
+      ["o43","bno","✘ Attendees < threshold — auto-cancelled · full refunds · push to attendees and to the venue if booked",2,35.1],
+      ["o44","organiser","Event day — live check-in dashboard · green (checked in) / yellow (paid, not arrived) / red (unpaid) · tap to override",1,36.3],
+      ["o45","system","2 hrs post-event — rating prompts fire to all attendees",1,37.3],
+      ["o46","organiser","Upload event gallery (optional)",1,38.3],
+      ["o47","system","Attendance + analytics auto-saved — feeds dashboard: members, churn, demographics, performance",1,39.3],
+      ["o48","terminal","Event closed · all data in the organiser dashboard",1,40.3],
+    ],
+    edges:[["o1","o2"],["o2","o3"],["o3","o4"],["o4","o5"],["o4","o6"],["o5","o7"],["o6","o7"],
+      ["o7","o8"],["o7","o9"],["o8","o10"],["o9","o10"],["o10","o11"],["o11","o12"],
+      ["o12","o13"],["o13","o14"],["o13","o15"],["o14","o16"],["o15","o16"],["o16","o17"],
+      ["o17","o18"],["o18","o19"],["o18","o20"],["o19","o21"],["o20","o21"],["o21","o22"],["o21","o23"],
+      ["o22","o35"],["o23","o24"],["o24","o25"],["o25","o26"],["o26","o27"],["o27","o28"],
+      ["o28","o29"],["o28","o30"],["o29","o35"],["o30","o31"],["o31","o32"],["o32","o33"],["o32","o34"],
+      ["o33","o35"],["o34","o35"],["o35","o36"],["o36","o37"],["o37","o38"],
+      ["o38","o39"],["o39","o40"],["o40","o41"],["o41","o42"],["o41","o43"],
+      ["o42","o44"],["o43","o48"],["o44","o45"],["o45","o46"],["o46","o47"],["o47","o48"]]
+  },
+
+  vendor: {
+    name:"Vendor (Venue)", color:"var(--vendor)",
+    sections:[{r:0,t:"Onboarding as a vendor"},{r:5.55,t:"Calendar management"},{r:8.55,t:"Booking tracking & revenue"}],
+    nodes:[
+      ["v1","decision","Already a member on the platform?",1,0],
+      ["v2","byes","✔ Yes — tap avatar → “List a venue” / “List a service”",0,1],
+      ["v3","bno","✘ No — full signup (phone + name + photo + interests) → then list",2,1],
+      ["v4","vendor","Vendor profile setup — name, description, category (Venue/Photographer/Catering/Production/Decor/Other), min 1 photo",1,2],
+      ["v5","vendor","Add space or service listing — multiple per profile, each independent · name, capacity, photos",1,3],
+      ["v6","vendor","Set arrangement options per space — hourly rate · per-head minimum · flat hire fee",1,4],
+      ["v7","system","Vendor profile live on marketplace — visible & filterable by category to organisers",1,5],
+      ["v8","vendor","Block off-platform bookings manually — prevents double-booking for phone / walk-in / private events",1,6.6],
+      ["v9","system","On-platform bookings auto-block the calendar — slot removed for all other organisers instantly",1,7.6],
+      ["v10","system","Booking notification pushed to vendor — organiser, event, date/time, space, arrangement, payment status",1,8.6],
+      ["v11","decision","Organiser payment status at time of booking?",1,9.6],
+      ["v12","byes","✔ Paid now — booking confirmed & locked in revenue dashboard",0,10.6],
+      ["v13","bno","✘ Pending (pay later) — pending indicator · 48 hr deadline auto-resolves (paid / removed / cancelled)",2,10.6],
+      ["v14","vendor","Revenue dashboard — upcoming bookings, confirmed revenue, pending payments, earnings history, avg rating",1,11.8],
+      ["v15","system","2 hrs post-event — ratings collected from organiser + attendees, aggregated on the vendor profile",1,12.8],
+      ["v16","terminal","Ongoing: manage calendar · receive bookings · view ratings & revenue",1,13.8],
+    ],
+    edges:[["v1","v2"],["v1","v3"],["v2","v4"],["v3","v4"],["v4","v5"],["v5","v6"],["v6","v7"],
+      ["v7","v8"],["v8","v9"],["v9","v10"],["v10","v11"],["v11","v12"],["v11","v13"],
+      ["v12","v14"],["v13","v14"],["v14","v15"],["v15","v16"]]
+  },
+
+  admin: {
+    name:"Admin", color:"var(--admin)",
+    sections:[{r:0,t:"Admin console — inferred (not specified in the source document)"}],
+    nodes:[
+      ["a1","admin","Admin signs in to the Saudi360 admin console",1,0],
+      ["a2","admin","Dashboard overview — members, clubs, events, vendors, GMV, active disputes",1,1],
+      ["a3","decision","Vendor / venue listing pending review?",1,2],
+      ["a4","byes","✔ Yes — review profile, photos & pricing → approve or reject",0,3],
+      ["a5","bno","✘ No — continue monitoring",2,3],
+      ["a6","admin","Moderate reported content — events, clubs, profiles, ratings",1,4],
+      ["a7","admin","Manage users — verify, suspend, handle KYC for formal clubs",1,5],
+      ["a8","admin","Oversee payments & payouts — PSP settlements (T+2), refunds, informal-club venue payments",1,6],
+      ["a9","decision","Refund or dispute raised?",1,7],
+      ["a10","byes","✔ Yes — investigate → issue refund or resolve dispute",0,8],
+      ["a11","bno","✘ No — no action needed",2,8],
+      ["a12","admin","Handle auto-cancel cascades — verify refunds processed, notify venue",1,9],
+      ["a13","admin","View platform analytics — growth, churn, demographics, event performance",1,10],
+      ["a14","admin","Manage support tickets & escalations",1,11],
+      ["a15","terminal","Admin actions logged · audit trail saved",1,12],
+    ],
+    edges:[["a1","a2"],["a2","a3"],["a3","a4"],["a3","a5"],["a4","a6"],["a5","a6"],
+      ["a6","a7"],["a7","a8"],["a8","a9"],["a9","a10"],["a9","a11"],
+      ["a10","a12"],["a11","a12"],["a12","a13"],["a13","a14"],["a14","a15"]]
+  },
+
+  eventcreation: {
+    name:"Event Creation", color:"#c084fc",
+    sections:[{r:0,t:"Entry & setup"},{r:7.55,t:"Venue booking sub-flow (only if a platform venue is needed)"},{r:16.55,t:"Ticket settings"}],
+    nodes:[
+      ["e1","decision","Entry point?",1,0],
+      ["e2","byes","✔ Entry A — Club profile → “Create event”",0,1],
+      ["e3","bno","✘ Entry B — Marketplace → select venue → “Book for event” (venue & space pre-selected, Step 3 pre-filled)",2,1],
+      ["e4","organiser","Step 1: Event basics — name, description, date & time, free or paid, hosting club",1,2],
+      ["e5","organiser","Step 2: Audience settings — public/private, gender & age restriction, capacity cap (optional)",1,3],
+      ["e6","decision","Recurring event?",1,4],
+      ["e7","byes","✔ Yes — set frequency (weekly/biweekly/monthly) · optional auto-cancel if attendees < X at 48 hr · instances editable",0,5],
+      ["e8","bno","✘ No — single event",2,5],
+      ["e9","decision","Platform venue needed?",1,6],
+      ["e10","bno","✘ No / self-arranged (~50% of events) — skip straight to ticket settings",0,7],
+      ["e11","byes","✔ Yes — book via marketplace",2,7],
+      ["e12","organiser","Browse marketplace — filter: Venues · Photographers · Catering · Production · Decor",1,8],
+      ["e13","organiser","View venue profile + select space — each space has its own calendar & pricing",1,9],
+      ["e14","organiser","Pick an available time slot — only open slots shown · on-platform bookings auto-block",1,10],
+      ["e15","organiser","Select arrangement — SAR/hour · per-head minimum · flat fee",1,11],
+      ["e16","decision","Pay for the venue now or later?",1,12],
+      ["e17","byes","✔ Pay now — booking confirmed → calendar slot auto-blocked",0,13],
+      ["e18","bno","✘ Pay later — booking held as pending · progressive reminders · 48 hr hard deadline",2,13],
+      ["e19","system","48 hr deadline check — system evaluates venue payment status before event start",1,14],
+      ["e20","decision","Venue paid by the 48 hr deadline?",1,15],
+      ["e21","byes","✔ Yes — event proceeds normally",0,16],
+      ["e22","bno","✘ No — organiser must act: (1) pay now (2) remove venue & self-arrange (3) no action → auto-cancel + full refunds",2,16],
+      ["e23","organiser","Step 3: Ticket settings (paid events) — price per ticket, refund policy",1,17],
+      ["e24","organiser","Location reveal setting — auto-reveal 48 hr before (recommended default) or manual only",1,18],
+      ["e25","organiser","Step 4: Review & post",1,19],
+      ["e26","system","Event published · shareable link generated — works in-browser, shows preview + app download nudge",1,20],
+      ["e27","terminal","Event is live → see the Organiser tab for pre-event & day-of management",1,21],
+    ],
+    edges:[["e1","e2"],["e1","e3"],["e2","e4"],["e3","e4"],["e4","e5"],["e5","e6"],
+      ["e6","e7"],["e6","e8"],["e7","e9"],["e8","e9"],["e9","e10"],["e9","e11"],
+      ["e10","e23"],["e11","e12"],["e12","e13"],["e13","e14"],["e14","e15"],["e15","e16"],
+      ["e16","e17"],["e16","e18"],["e17","e23"],["e18","e19"],["e19","e20"],["e20","e21"],["e20","e22"],
+      ["e21","e23"],["e22","e23"],["e23","e24"],["e24","e25"],["e25","e26"],["e26","e27"]]
+  },
+
+  payment: {
+    name:"Payment", color:"#34d399",
+    sections:[{r:0,t:"Member payment (paid event)"},{r:5.55,t:"Payout to organiser / venue"},
+      {r:7.55,t:"Venue payment (organiser booking a venue)"},{r:12.55,t:"Refunds & cancellations"}],
+    nodes:[
+      ["p1","member","Member taps a paid event → “Get ticket”",1,0],
+      ["p2","decision","Formal or informal club event?",1,1],
+      ["p3","byes","✔ Formal — checkout shows price + refund policy · payment collected by the platform PSP",0,2],
+      ["p4","bno","✘ Informal — checkout shows “Processed by [Venue] on behalf of [Club]” · payment goes directly to the venue (merchant of record)",2,2],
+      ["p5","member","Choose payment method — Apple Pay / Mada / STC Pay",1,3],
+      ["p6","system","Payment is the automatic RSVP “Yes” — no separate RSVP step for paid events",1,4],
+      ["p7","system","Confirmation push sent · member added to the confirmed attendee list",1,5],
+      ["p8","decision","Club type for payout?",1,6],
+      ["p9","byes","✔ Formal — PSP pays out to the organiser T+2 after the event",0,7],
+      ["p10","bno","✘ Informal — organiser settles with the venue off-platform (venue already collected)",2,7],
+      ["p11","decision","Pay for the venue now or later?",1,8],
+      ["p12","byes","✔ Pay now — booking confirmed → calendar slot auto-blocked",0,9],
+      ["p13","bno","✘ Pay later — pending · progressive reminders · 48 hr hard deadline",2,9],
+      ["p14","system","48 hr deadline check — system evaluates venue payment status",1,10],
+      ["p15","decision","Venue paid by the 48 hr deadline?",1,11],
+      ["p16","byes","✔ Yes — event proceeds normally",0,12],
+      ["p17","bno","✘ No — (1) pay now (2) remove venue & self-arrange (3) no action → auto-cancel + full refunds",2,12],
+      ["p18","decision","Event cancelled (auto-cancel threshold or unpaid venue)?",1,13],
+      ["p19","byes","✔ Paid event — full refunds to all paid members · push to attendees and to the venue if booked",0,14],
+      ["p20","bno","✘ Free event — notifications only, no refunds",2,14],
+      ["p21","system","Vendor revenue — paid-now bookings locked in; pending bookings auto-resolve at the 48 hr deadline",1,15],
+      ["p22","terminal","Payments, payouts & refunds reconciled",1,16],
+    ],
+    edges:[["p1","p2"],["p2","p3"],["p2","p4"],["p3","p5"],["p4","p5"],["p5","p6"],["p6","p7"],
+      ["p7","p8"],["p8","p9"],["p8","p10"],["p9","p11"],["p10","p11"],
+      ["p11","p12"],["p11","p13"],["p12","p18"],["p13","p14"],["p14","p15"],["p15","p16"],["p15","p17"],
+      ["p16","p18"],["p17","p18"],["p18","p19"],["p18","p20"],["p19","p21"],["p20","p21"],["p21","p22"]]
+  }
+};
+
+/* ---------- build a fresh default state from RAW ---------- */
+function buildDefaults(){
+  const out = {};
+  for(const key in RAW){
+    const b = RAW[key];
+    out[key] = {
+      nodes: b.nodes.map(([id,type,text,c,r])=>({
+        id, type, text, x: COLX[c], y: TOP + r*ROW_H, comment:""
+      })),
+      edges: b.edges.map(([from,to])=>({id:from+"_"+to, from, to}))
+    };
+  }
+  return out;
+}
+
+/* ---------- state ---------- */
+let state = loadState();
+let current = "user";
+let selNode = null, selEdge = null;
+let history = [];
+
+function loadState(){
+  let s = null;
+  if(window.__SNAPSHOT__ && window.__SNAPSHOT__.user) s = window.__SNAPSHOT__;
+  else { const raw = store.get(STORE_KEY); if(raw){ try{ const p = JSON.parse(raw); if(p && p.user) s = p; }catch(e){} } }
+  if(!s) s = buildDefaults();
+  const def = buildDefaults();
+  for(const k in def){ if(!s[k]) s[k] = def[k]; }  // add any new boards introduced later
+  return s;
+}
+function save(){ store.set(STORE_KEY, JSON.stringify(state)); }
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+function pushHistory(snap){ history.push(snap||clone(state)); if(history.length>60) history.shift(); updateUndoBtn(); }
+function undo(){
+  if(!history.length){ toast("Nothing to undo"); return; }
+  state = history.pop(); selNode=selEdge=null; save(); renderBoard(); updateUndoBtn(); toast("Undone");
+}
+function updateUndoBtn(){
+  const b=document.getElementById("undoBtn"); if(!b) return;
+  b.disabled = history.length===0; b.style.opacity = history.length? "1":".45";
+}
+
+/* ---------- DOM refs ---------- */
+const tabsEl = document.getElementById("tabs");
+const legendEl = document.getElementById("legend");
+const canvas = document.getElementById("canvas");
+const svg = document.getElementById("svg");
+const wrap = document.getElementById("wrap");
+const scroll = document.getElementById("scroll");
+const elById = {};
+
+/* ---------- arrowhead def ---------- */
+svg.innerHTML = `<defs>
+  <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="userSpaceOnUse">
+    <path d="M0,0 L8,3 L0,6 Z" fill="#5b6675"></path>
+  </marker>
+  <marker id="arrowHi" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="userSpaceOnUse">
+    <path d="M0,0 L8,3 L0,6 Z" fill="var(--accent-2)"></path>
+  </marker>
+</defs>`;
+
+/* ---------- tabs + legend ---------- */
+function renderTabs(){
+  tabsEl.innerHTML = "";
+  for(const key in RAW){
+    const b = RAW[key];
+    const t = document.createElement("button");
+    t.className = "tab" + (key===current?" active":"");
+    t.innerHTML = `<span class="dot" style="background:${b.color}"></span>${b.name}`;
+    t.onclick = ()=>{ current=key; selNode=selEdge=null; renderTabs(); renderBoard(); };
+    tabsEl.appendChild(t);
+  }
+}
+function renderLegend(){
+  if(!legendEl) return;
+  const items = [
+    ["Member","--member"],["Organiser","--organiser"],["Vendor","--vendor"],
+    ["Admin","--admin"],["System","--system"],["Decision","--decision"],["End","--terminal"]
+  ];
+  legendEl.innerHTML = items.map(([l,c])=>`<span class="lg"><i style="border-left-color:var(${c});background:var(${c.replace('--','--')}-bg,transparent)"></i>${l}</span>`).join("");
+}
+
+/* ---------- render board ---------- */
+function renderBoard(){
+  // clear nodes & labels (keep svg)
+  [...canvas.querySelectorAll(".node,.section-label,.empty-note")].forEach(n=>n.remove());
+  for(const k in elById) delete elById[k];
+
+  const b = state[current];
+
+  // section labels
+  (RAW[current].sections||[]).forEach(s=>{
+    const lab = document.createElement("div");
+    lab.className = "section-label";
+    lab.style.left = "20px";
+    lab.style.top = (TOP + s.r*ROW_H - 26) + "px";
+    lab.textContent = s.t;
+    canvas.appendChild(lab);
+  });
+
+  // nodes
+  let maxY = 0;
+  b.nodes.forEach(n=>{
+    const el = document.createElement("div");
+    el.className = "node " + n.type + (n.comment?" has-cmt":"");
+    el.style.left = n.x + "px";
+    el.style.top = n.y + "px";
+    el.dataset.id = n.id;
+    el.innerHTML = `
+      <div class="kind">${KIND_LABEL[n.type]||n.type}</div>
+      <div class="txt">${escapeHtml(n.text)}</div>
+      <div class="cmt-flag">💬 ${escapeHtml(n.comment||"")}</div>
+      <div class="actions">
+        ${n.custom?'<div class="ic edit" title="Edit text">✎</div>':''}
+        <div class="ic cmt ${n.comment?'has':''}" title="Comment">💬</div>
+        <div class="ic del" title="Remove step">✕</div>
+      </div>
+      <div class="handle" title="Drag to connect"></div>`;
+    canvas.appendChild(el);
+    elById[n.id] = el;
+    maxY = Math.max(maxY, n.y);
+    wireNode(el, n);
+  });
+
+  if(b.nodes.length===0){
+    const note = document.createElement("div");
+    note.className = "empty-note";
+    note.innerHTML = "This board is empty.<br>Use <b>Reset board</b> to restore the original recommended flow.";
+    canvas.appendChild(note);
+  }
+
+  const h = Math.max(maxY + 260, wrap.clientHeight);
+  canvas.style.height = h + "px";
+  svg.setAttribute("width", 1180);
+  svg.setAttribute("height", h);
+  redrawEdges();
+}
+
+/* ---------- edges ---------- */
+function rectOf(id){
+  const el = elById[id]; if(!el) return null;
+  return {x:el.offsetLeft, y:el.offsetTop, w:el.offsetWidth, h:el.offsetHeight};
+}
+function anchorPair(a,b){
+  const ac={x:a.x+a.w/2,y:a.y+a.h/2}, bc={x:b.x+b.w/2,y:b.y+b.h/2};
+  const dx=bc.x-ac.x, dy=bc.y-ac.y;
+  let s,e;
+  if(Math.abs(dy) >= Math.abs(dx)*0.6){ // mostly vertical
+    if(dy>=0){ s={x:ac.x,y:a.y+a.h}; e={x:bc.x,y:b.y}; }
+    else     { s={x:ac.x,y:a.y};     e={x:bc.x,y:b.y+b.h}; }
+  } else {
+    if(dx>=0){ s={x:a.x+a.w,y:ac.y}; e={x:b.x,y:bc.y}; }
+    else     { s={x:a.x,y:ac.y};     e={x:b.x+b.w,y:bc.y}; }
+  }
+  return {s,e};
+}
+function pathD(s,e){
+  const my=(s.y+e.y)/2;
+  const dx=Math.abs(e.x-s.x), dy=Math.abs(e.y-s.y);
+  if(dy>=dx) return `M${s.x},${s.y} C${s.x},${my} ${e.x},${my} ${e.x},${e.y}`;
+  const mx=(s.x+e.x)/2;
+  return `M${s.x},${s.y} C${mx},${s.y} ${mx},${e.y} ${e.x},${e.y}`;
+}
+function redrawEdges(){
+  [...svg.querySelectorAll("g.edge,path.temp")].forEach(n=>n.remove());
+  const b = state[current];
+  b.edges.forEach(ed=>{
+    const ra=rectOf(ed.from), rb=rectOf(ed.to);
+    if(!ra||!rb) return;
+    const {s,e}=anchorPair(ra,rb);
+    const d=pathD(s,e);
+    const g=document.createElementNS("http://www.w3.org/2000/svg","g");
+    g.setAttribute("class","edge"+(selEdge===ed.id?" sel":""));
+    g.dataset.id=ed.id;
+    const hit=document.createElementNS("http://www.w3.org/2000/svg","path");
+    hit.setAttribute("class","hit"); hit.setAttribute("d",d);
+    const vis=document.createElementNS("http://www.w3.org/2000/svg","path");
+    vis.setAttribute("class","vis"); vis.setAttribute("d",d);
+    vis.setAttribute("marker-end", selEdge===ed.id?"url(#arrowHi)":"url(#arrow)");
+    g.appendChild(hit); g.appendChild(vis);
+    g.addEventListener("click",(ev)=>{ ev.stopPropagation(); selectEdge(ed.id); });
+    svg.appendChild(g);
+  });
+}
+
+/* ---------- selection ---------- */
+function clearSel(){
+  selNode=selEdge=null;
+  [...canvas.querySelectorAll(".node.sel")].forEach(n=>n.classList.remove("sel"));
+  redrawEdges();
+}
+function selectNode(id){
+  clearSel(); selNode=id;
+  if(elById[id]) elById[id].classList.add("sel");
+}
+function selectEdge(id){
+  clearSel(); selEdge=id; redrawEdges();
+}
+
+/* ---------- node interactions ---------- */
+function wireNode(el, n){
+  const handle = el.querySelector(".handle");
+  const delBtn = el.querySelector(".ic.del");
+  const cmtBtn = el.querySelector(".ic.cmt");
+  const editBtn = el.querySelector(".ic.edit");
+
+  delBtn.addEventListener("click",(e)=>{ e.stopPropagation(); removeNode(n.id); });
+  cmtBtn.addEventListener("click",(e)=>{ e.stopPropagation(); openComment(n.id); });
+  if(editBtn) editBtn.addEventListener("click",(e)=>{ e.stopPropagation(); openEditBox(n.id); });
+
+  // connect via handle
+  handle.addEventListener("pointerdown",(e)=>{
+    e.preventDefault(); e.stopPropagation();
+    startConnect(n.id, e);
+  });
+
+  // drag body / click select
+  el.addEventListener("pointerdown",(e)=>{
+    if(e.target.closest(".ic")||e.target.closest(".handle")) return;
+    startDrag(n, el, e);
+  });
+}
+
+function startDrag(n, el, e){
+  e.preventDefault();
+  const startX = e.clientX, startY = e.clientY;
+  const origX = n.x, origY = n.y;
+  const snap = clone(state);
+  let moved = false;
+  el.classList.add("dragging");
+
+  function move(ev){
+    const dx = ev.clientX - startX, dy = ev.clientY - startY;
+    if(Math.abs(dx)>4||Math.abs(dy)>4) moved = true;
+    n.x = Math.max(0, origX + dx);
+    n.y = Math.max(0, origY + dy);
+    el.style.left = n.x+"px"; el.style.top = n.y+"px";
+    redrawEdges();
+  }
+  function up(){
+    document.removeEventListener("pointermove",move);
+    document.removeEventListener("pointerup",up);
+    el.classList.remove("dragging");
+    if(moved){ pushHistory(snap); save(); growCanvas(); }
+    else { selectNode(n.id); }
+  }
+  document.addEventListener("pointermove",move);
+  document.addEventListener("pointerup",up);
+}
+
+function startConnect(fromId, e){
+  const fromEl = elById[fromId];
+  const sx = fromEl.offsetLeft + fromEl.offsetWidth/2;
+  const sy = fromEl.offsetTop + fromEl.offsetHeight;
+  const temp = document.createElementNS("http://www.w3.org/2000/svg","path");
+  temp.setAttribute("class","temp");
+  temp.setAttribute("marker-end","url(#arrowHi)");
+  svg.appendChild(temp);
+
+  function move(ev){
+    const p = toCanvas(ev.clientX, ev.clientY);
+    temp.setAttribute("d", pathD({x:sx,y:sy},{x:p.x,y:p.y}));
+  }
+  function up(ev){
+    document.removeEventListener("pointermove",move);
+    document.removeEventListener("pointerup",up);
+    temp.remove();
+    const target = document.elementFromPoint(ev.clientX, ev.clientY);
+    const tEl = target && target.closest(".node");
+    if(tEl){
+      const toId = tEl.dataset.id;
+      if(toId && toId!==fromId) addEdge(fromId, toId);
+    }
+  }
+  document.addEventListener("pointermove",move);
+  document.addEventListener("pointerup",up);
+}
+
+function toCanvas(clientX, clientY){
+  const r = canvas.getBoundingClientRect();
+  return {x: clientX - r.left, y: clientY - r.top};
+}
+
+/* ---------- mutations ---------- */
+function addEdge(from,to){
+  const b = state[current];
+  const id = from+"_"+to;
+  if(b.edges.some(e=>e.from===from&&e.to===to)){ toast("Those boxes are already connected"); return; }
+  pushHistory();
+  b.edges.push({id, from, to});
+  save(); redrawEdges(); toast("Arrow added");
+}
+function removeNode(id){
+  const b = state[current];
+  pushHistory();
+  b.nodes = b.nodes.filter(n=>n.id!==id);
+  b.edges = b.edges.filter(e=>e.from!==id && e.to!==id);
+  if(selNode===id) selNode=null;
+  save(); renderBoard(); toast("Step removed");
+}
+function removeEdge(id){
+  const b = state[current];
+  pushHistory();
+  b.edges = b.edges.filter(e=>e.id!==id);
+  selEdge=null; save(); redrawEdges(); toast("Arrow deleted");
+}
+function growCanvas(){
+  const b = state[current];
+  let maxY=0; b.nodes.forEach(n=>maxY=Math.max(maxY,n.y));
+  const h = Math.max(maxY+260, wrap.clientHeight);
+  canvas.style.height = h+"px"; svg.setAttribute("height",h);
+}
+
+/* ---------- comment modal ---------- */
+const overlay=document.getElementById("overlay");
+const cmtText=document.getElementById("cmtText");
+const cmtCtx=document.getElementById("cmtCtx");
+let cmtTarget=null;
+function openComment(id){
+  const n = state[current].nodes.find(x=>x.id===id); if(!n) return;
+  cmtTarget=id; cmtCtx.textContent = n.text;
+  cmtText.value = n.comment||"";
+  overlay.classList.add("show"); cmtText.focus();
+}
+function closeComment(){ overlay.classList.remove("show"); cmtTarget=null; }
+document.getElementById("cmtCancel").onclick=closeComment;
+document.getElementById("cmtSave").onclick=()=>{
+  if(!cmtTarget) return;
+  pushHistory();
+  const n=state[current].nodes.find(x=>x.id===cmtTarget);
+  n.comment = cmtText.value.trim();
+  save(); renderBoard(); closeComment(); toast("Comment saved");
+};
+document.getElementById("cmtClear").onclick=()=>{
+  if(!cmtTarget) return;
+  pushHistory();
+  const n=state[current].nodes.find(x=>x.id===cmtTarget);
+  n.comment=""; cmtText.value=""; save(); renderBoard(); closeComment(); toast("Comment cleared");
+};
+overlay.addEventListener("click",e=>{ if(e.target===overlay) closeComment(); });
+
+/* ---------- add / edit box modal ---------- */
+const boxOverlay=document.getElementById("boxOverlay");
+const boxType=document.getElementById("boxType");
+const boxText=document.getElementById("boxText");
+const boxTitle=document.getElementById("boxTitle");
+const boxSaveBtn=document.getElementById("boxSave");
+let editId=null;
+const DEFAULT_TYPE={user:"member",organiser:"organiser",vendor:"vendor",admin:"admin",eventcreation:"organiser",payment:"system"};
+
+function openAddBox(){
+  editId=null;
+  boxTitle.textContent="Add a box";
+  boxSaveBtn.textContent="Add box";
+  boxType.value=DEFAULT_TYPE[current]||"member";
+  boxText.value="";
+  boxOverlay.classList.add("show"); boxText.focus();
+}
+function openEditBox(id){
+  const n=state[current].nodes.find(x=>x.id===id); if(!n) return;
+  editId=id;
+  boxTitle.textContent="Edit box";
+  boxSaveBtn.textContent="Save changes";
+  boxType.value=n.type; boxText.value=n.text;
+  boxOverlay.classList.add("show"); boxText.focus();
+}
+function closeBox(){ boxOverlay.classList.remove("show"); editId=null; }
+boxSaveBtn.onclick=()=>{
+  const txt=boxText.value.trim();
+  if(!txt){ toast("Type some text first"); return; }
+  const isEdit=!!editId;
+  pushHistory();
+  if(isEdit){
+    const n=state[current].nodes.find(x=>x.id===editId);
+    n.type=boxType.value; n.text=txt;
+  } else {
+    const id="n"+Date.now().toString(36)+Math.floor(Math.random()*1000);
+    const x=Math.max(0, Math.min(880, wrap.scrollLeft + wrap.clientWidth/2 - 150));
+    const y=wrap.scrollTop + 100;
+    state[current].nodes.push({id,type:boxType.value,text:txt,x,y,comment:"",custom:true});
+  }
+  save(); renderBoard(); closeBox(); toast(isEdit?"Box updated":"Box added");
+};
+document.getElementById("boxCancel").onclick=closeBox;
+document.getElementById("addBoxBtn").onclick=openAddBox;
+boxOverlay.addEventListener("click",e=>{ if(e.target===boxOverlay) closeBox(); });
+
+/* ---------- toolbar ---------- */
+document.getElementById("undoBtn").onclick=undo;
+document.getElementById("exportBtn").onclick=()=>{
+  const snap = JSON.stringify(state).replace(/</g,"\\u003c");
+  const M0 = "<!--S360_"+"START-->", M1 = "<!--S360_"+"END-->";
+  const open = "<scr"+"ipt>", close = "<\/scr"+"ipt>";
+  let doc = PRISTINE_HTML;
+  const i = doc.indexOf(M0);
+  if(i>=0){ const j = doc.indexOf(M1); if(j>=0) doc = doc.slice(0,i) + doc.slice(j+M1.length); }
+  const inject = M0 + open + "window.__SNAPSHOT__=" + snap + ";" + close + M1;
+  doc = doc.replace("</head>", inject + "\n</head>");
+  const blob = new Blob([doc], {type:"text/html"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "saudi360-flows.html"; a.click();
+  URL.revokeObjectURL(a.href); toast("Saved as HTML — ready to send");
+};
+
+/* ---------- keyboard ---------- */
+document.addEventListener("keydown",e=>{
+  if(overlay.classList.contains("show")||boxOverlay.classList.contains("show")) return;
+  if((e.ctrlKey||e.metaKey) && (e.key==="z"||e.key==="Z")){ e.preventDefault(); undo(); return; }
+  if(e.key==="Delete"||e.key==="Backspace"){
+    if(selEdge){ e.preventDefault(); removeEdge(selEdge); }
+    else if(selNode){ e.preventDefault(); removeNode(selNode); }
+  } else if(e.key==="Escape"){ clearSel(); }
+});
+wrap.addEventListener("pointerdown",e=>{ if(e.target===wrap||e.target===scroll||e.target===canvas||e.target===svg) clearSel(); });
+
+/* ---------- helpers ---------- */
+function escapeHtml(s){return (s||"").replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function confirmSafe(msg){ try{ return window.confirm(msg); }catch(e){ return true; } }
+let toastT;
+function toast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),1600);
+}
+
+/* ---------- boot ---------- */
+renderTabs(); renderBoard(); updateUndoBtn();
+window.addEventListener("resize",growCanvas);
+</script>
+</body>
+</html>
